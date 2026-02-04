@@ -1,0 +1,1 @@
+julia -t 32 --gcthreads=10,1 sphere_FQHE_npin_parallel_v4.jl -e 6 -o 18 --npins 4 -k 1 -n 8 -i v1.txt --lambda 1
