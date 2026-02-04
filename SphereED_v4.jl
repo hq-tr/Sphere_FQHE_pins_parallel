@@ -246,9 +246,16 @@ function calcV(twoBody::Vector{Tuple{Float64, Tuple{UInt64, UInt64,UInt64, UInt6
             end
 
             #print("\r   $i\t$j\t$IInd\t$JInd\t\t")
-            push!(Rows[Threads.threadid()-1], JInd)
-            push!(Cols[Threads.threadid()-1], IInd)
-            push!(Vals[Threads.threadid()-1], ((-1)^totalsign)*v) 
+            if Threads.nthreads() > 1
+                push!(Rows[Threads.threadid()-1], JInd)
+                push!(Cols[Threads.threadid()-1], IInd)
+                push!(Vals[Threads.threadid()-1], ((-1)^totalsign)*v) 
+            else
+                push!(Rows[1], JInd)
+                push!(Cols[1], IInd)
+                push!(Vals[1], ((-1)^totalsign)*v) 
+            end
+
         end
     end
     rows=reduce(vcat,Rows)
@@ -321,9 +328,15 @@ function calcT(oneBody::Vector{Tuple{ComplexF64, Tuple{UInt64, UInt64}}}, States
             if JInd == (length(States)+1) || States[JInd]!=J
                 continue
             end
-            push!(Rows[Threads.threadid()-1], JInd)
-            push!(Cols[Threads.threadid()-1], IInd)
-            push!(Vals[Threads.threadid()-1], ((-1)^totalsign)*t) 
+            if Threads.nthreads() > 1
+                push!(Rows[Threads.threadid()-1], JInd)
+                push!(Cols[Threads.threadid()-1], IInd)
+                push!(Vals[Threads.threadid()-1], ((-1)^totalsign)*t) 
+            else
+                push!(Rows[1], JInd)
+                push!(Cols[1], IInd)
+                push!(Vals[1], ((-1)^totalsign)*t ) 
+            end
         end
     end
     rows=reduce(vcat,Rows)
