@@ -1,4 +1,4 @@
-include("SphereED_v4.jl")
+include("SphereED_v5.jl")
 include("FQH_states_IO.jl")
 using .FQH_states
 using .HilbertSpaceGenerator
@@ -15,9 +15,14 @@ using JLD2
 using Arpack
 using Dates
 
+function check_valid_result(dir_name) # A directory must contains "out.log", otherwise its result is invalid
+    return ("out.log" in readdir(dir_name))
+end
+
 function read_rows_and_cols(one_body_file="",two_body_file="")
     rows = UInt64[]
     cols = UInt64[]
+    ut   = BitVector([])
     lens = [0,0]
     try
         open("Matrix/one-body/$(one_body_file)/rows.txt","r") do f
@@ -215,11 +220,14 @@ function main()
             if isdir("Matrix")
                 if isdir("Matrix/two-body")
                     matrix_directories = filter(x -> occursin("$(n_el)e_$(n_orb)o_$intname",x),readdir("Matrix/two-body"))
-                    if length(matrix_directories) > 0
-                        latest_file_2bdy = matrix_directories[end]
-                        build_matrix = false
-                    else
-                        build_matrix = true
+                    while length(matrix_directories) > 0
+                        if check_valid_result("Matrix/two-body/$(matrix_directories[end])")
+                            latest_file_2bdy = matrix_directories[end]
+                            build_matrix = false
+                            break
+                        else
+                            pop!(matrix_directories)
+                        end
                     end
                 else
                     build_matrix = true
@@ -236,6 +244,9 @@ function main()
                     calcV(twoBody,basis,subzone;num_zones=10,name=latest_file_2bdy)
                 end
             end 
+            open("Matrix/two-body/$latest_file_2bdy/out.log","w+") do f
+                write(f,"Completed on $(now()).")
+            end
         else
             println("Matrix data found at")
             println("  Matrix/two-body/$latest_file_2bdy")
@@ -248,11 +259,14 @@ function main()
             if isdir("Matrix")
                 if isdir("Matrix/one-body")
                     matrix_directories = filter(x -> occursin("$(n_el)e_$(n_orb)o_$(npin)_pins_k_$(pin_size)",x),readdir("Matrix/one-body"))
-                    if length(matrix_directories) > 0
-                        latest_file_1bdy = matrix_directories[end]
-                        build_matrix = false
-                    else
-                        build_matrix = true
+                    while length(matrix_directories) > 0
+                        if check_valid_result("Matrix/one-body/$(matrix_directories[end])")
+                            latest_file_1bdy = matrix_directories[end]
+                            build_matrix = false
+                            break
+                        else
+                            pop!(matrix_directories)
+                        end
                     end
                 else
                     build_matrix = true
@@ -270,6 +284,9 @@ function main()
                     calcT(oneBody,basis,subzone;num_zones=100,name=latest_file_1bdy)
                 end
             end      
+            open("Matrix/one-body/$latest_file_1bdy/out.log","w+") do f
+                write(f,"Completed on $(now()).")
+            end
         else
             println("Matrix data found at")
             println("  Matrix/one-body/$latest_file_1bdy")
