@@ -69,6 +69,7 @@ function main()
         @argumentflag forcerebuild "--force-rebuild-matrix"
         @argumentflag nooutput "--no-output"
         @argumentflag noeigenstate "--no-eigenstate"
+        @argumentflag nomatrix "--no-saving-matrix"
     end
     #LzConserve = npin ≤ 2
     LzConserve = false # This version doesn't work for rotationally symmetric configurations yet
@@ -350,6 +351,12 @@ function main()
                     printwf(gs;fname="$(dirname)/gs_$(outname)_λ_$(λ)_$(i-1)")
                 end
             end
+        end
+
+        # Delete the matrix files if required
+        if nomatrix
+            rm("Matrix/two-body/$(latest_file_2bdy)",recursive=true)
+            rm("Matrix/one-body/$(latest_file_1bdy)",recursive=true)
         end
     end
 end
