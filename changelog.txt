@@ -1,6 +1,6 @@
 == 2026-02-07
-• Updated SphereED_v5.jl to remove repeated lines in output with the same (row,col) index pairs.
-	- It only applies to each thread within each subzone. So potentially there could still be repeated index pairs if they occur in different threads or different subzones.
+• Updated SphereED_v5.jl to combine repeated lines in output with the same (row,col) index pairs.
+	- It only applies to each subzone. So potentially there could still be repeated index pairs if they occur in different subzones. This problem is not addressed yet (check To-do)
 
 == 2026-02-06
 • Added repository
