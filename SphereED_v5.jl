@@ -205,9 +205,10 @@ function calcV(twoBody::Vector{Tuple{ComplexF64, Tuple{Int64, Int64,Int64, Int64
     if !isdir("Matrix/two-body") mkdir("Matrix/two-body") end
     if !isdir("Matrix/two-body/$name") mkdir("Matrix/two-body/$name") end
 
-    Rows = [Vector{Int64}() for _ in 1:Threads.nthreads()]
-    Cols = [Vector{Int64}() for _ in 1:Threads.nthreads()]
-    Vals = [Vector{ComplexF64}() for _ in 1:Threads.nthreads()]
+    #Rows = [Vector{Int64}() for _ in 1:Threads.nthreads()]
+    #Cols = [Vector{Int64}() for _ in 1:Threads.nthreads()]
+    #Vals = [Vector{ComplexF64}() for _ in 1:Threads.nthreads()]
+    entries = [Dict{Tuple{Int64,Int64},ComplexF64}() for _ in 1:Threads.nthreads()]
     base_size,remainder = divrem(length(twoBody),num_zones)
     if subzone <= remainder
         begin_index = (base_size+1)*(subzone-1)+1
@@ -232,25 +233,35 @@ function calcV(twoBody::Vector{Tuple{ComplexF64, Tuple{Int64, Int64,Int64, Int64
             if JInd == (length(States)+1) || States[JInd]!=J
                 continue
             end
-            # The following push is this way due to the way Julia 1.10+ handles thread numbering
-            if Threads.nthreads() > 1
-                push!(Rows[Threads.threadid()-1], JInd)
-                push!(Cols[Threads.threadid()-1], IInd)
-                push!(Vals[Threads.threadid()-1], sign*v*2) 
+            # The following tid is this way due to the way Julia 1.10+ handles thread numbering
+            tid = Threads.nthreads() > 1 ? Threads.threadid() - 1 : Thread.threadid()
+            if (IInd,JInd) in keys(entries[tid]) 
+                entries[tid][(IInd,JInd)] += sign*v*2
             else
-                push!(Rows[1], JInd)
-                push!(Cols[1], IInd)
-                push!(Vals[1], sign*v*2) 
+                entries[tid][(IInd,JInd)] = sign*v*2
             end
+            # if Threads.nthreads() > 1
+            #     push!(Rows[Threads.threadid()-1], JInd)
+            #     push!(Cols[Threads.threadid()-1], IInd)
+            #     push!(Vals[Threads.threadid()-1], sign*v*2) 
+            # else
+            #     push!(Rows[1], JInd)
+            #     push!(Cols[1], IInd)
+            #     push!(Vals[1], sign*v*2) 
+            # end
         end
     end
-    rows=reduce(vcat,Rows)
-    cols=reduce(vcat,Cols)
-    vals=reduce(vcat,Vals)
+    #rows=reduce(vcat,Rows)
+    #cols=reduce(vcat,Cols)
+    #vals=reduce(vcat,Vals)
+    rows = reduce(vcat, [[x[1] for x in keys(entry)] for entry in entries])
+    cols = reduce(vcat, [[x[2] for x in keys(entry)] for entry in entries])
+    vals = reduce(vcat, [collect(values(entry)) for entry in entries])
     #FREE UP RAM
-    Rows=nothing
-    Cols=nothing
-    Vals=nothing
+    entries = nothing
+    #Rows=nothing
+    #Cols=nothing
+    #Vals=nothing
     GC.gc() #garbage collect
     
     open("Matrix/two-body/$name/rows.txt","a+") do f
@@ -284,9 +295,11 @@ function calcT(oneBody::Vector{Tuple{ComplexF64, Tuple{Int64, Int64}}}, States::
     if !isdir("Matrix/one-body") mkdir("Matrix/one-body") end
     if !isdir("Matrix/one-body/$name") mkdir("Matrix/one-body/$name") end
 
-    Rows = [Vector{Int64}() for _ in 1:Threads.nthreads()]
-    Cols = [Vector{Int64}() for _ in 1:Threads.nthreads()]
-    Vals = [Vector{ComplexF64}() for _ in 1:Threads.nthreads()]
+    #Rows = [Vector{Int64}() for _ in 1:Threads.nthreads()]
+    #Cols = [Vector{Int64}() for _ in 1:Threads.nthreads()]
+    #Vals = [Vector{ComplexF64}() for _ in 1:Threads.nthreads()]
+
+    entries = [Dict{Tuple{Int64,Int64},ComplexF64}() for _ in 1:Threads.nthreads()]
     base_size,remainder = divrem(length(oneBody),num_zones)
     if subzone <= remainder
         begin_index = (base_size+1)*(subzone-1)+1
@@ -309,30 +322,48 @@ function calcT(oneBody::Vector{Tuple{ComplexF64, Tuple{Int64, Int64}}}, States::
             if JInd == (length(States)+1) || States[JInd]!=J
                 continue
             end
-            if Threads.nthreads() > 1
-                push!(Rows[Threads.threadid()-1], JInd)
-                push!(Cols[Threads.threadid()-1], IInd)
-                push!(Vals[Threads.threadid()-1], sign*t) 
-                push!(Rows[Threads.threadid()-1], IInd)
-                push!(Cols[Threads.threadid()-1], JInd)
-                push!(Vals[Threads.threadid()-1], conj(sign*t))
+
+            # Record the result
+            tid = Threads.nthreads() > 1 ? Threads.threadid() - 1 : Thread.threadid()
+            if (IInd,JInd) in keys(entries[tid]) 
+                entries[tid][(IInd,JInd)] += sign*t
             else
-                push!(Rows[1], JInd)
-                push!(Cols[1], IInd)
-                push!(Vals[1], sign*t) 
-                push!(Rows[1], IInd)
-                push!(Cols[1], JInd)
-                push!(Vals[1], conj(sign*t)) 
+                entries[tid][(IInd,JInd)] = sign*t
             end
+
+            if (JInd, IInd) in keys(entries[tid]) 
+                entries[tid][(JInd,IInd)] += conj(sign*t)
+            else
+                entries[tid][(JInd,IInd)] = conj(sign*t)
+            end
+            # if Threads.nthreads() > 1
+            #     push!(Rows[Threads.threadid()-1], JInd)
+            #     push!(Cols[Threads.threadid()-1], IInd)
+            #     push!(Vals[Threads.threadid()-1], sign*t) 
+            #     push!(Rows[Threads.threadid()-1], IInd)
+            #     push!(Cols[Threads.threadid()-1], JInd)
+            #     push!(Vals[Threads.threadid()-1], conj(sign*t))
+            # else
+            #     push!(Rows[1], JInd)
+            #     push!(Cols[1], IInd)
+            #     push!(Vals[1], sign*t) 
+            #     push!(Rows[1], IInd)
+            #     push!(Cols[1], JInd)
+            #     push!(Vals[1], conj(sign*t)) 
+            # end
         end
     end
-    rows=reduce(vcat,Rows)
-    cols=reduce(vcat,Cols)
-    vals=reduce(vcat,Vals)
+    # rows=reduce(vcat,Rows)
+    # cols=reduce(vcat,Cols)
+    # vals=reduce(vcat,Vals)
+    rows = reduce(vcat, [[x[1] for x in keys(entry)] for entry in entries])
+    cols = reduce(vcat, [[x[2] for x in keys(entry)] for entry in entries])
+    vals = reduce(vcat, [collect(values(entry)) for entry in entries])
     #FREE UP RAM
-    Rows=nothing
-    Cols=nothing
-    Vals=nothing
+    entries = nothing
+    # Rows=nothing
+    # Cols=nothing
+    # Vals=nothing
     GC.gc() #garbage collect
 
     open("Matrix/one-body/$name/rows.txt","a+") do f
