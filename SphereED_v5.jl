@@ -161,6 +161,18 @@ end
 
 module ConstructManybodyMatrix
 using SparseArrays
+
+function combinedata!(a, b)
+    for bb in keys(b)
+        if bb in keys(a)
+            a[bb] += b[bb]
+        else
+            a[bb] = b[bb]
+        end
+    end
+    return a
+end
+
 function calcSign(I::Int64, K::Int64)::Int64
     M = I-(I&(2K-1)) #occupied states to the left of (i)
     btwnCnt = count_ones(M) #counts all occupied to the left of (i)
@@ -234,7 +246,7 @@ function calcV(twoBody::Vector{Tuple{ComplexF64, Tuple{Int64, Int64,Int64, Int64
                 continue
             end
             # The following tid is this way due to the way Julia 1.10+ handles thread numbering
-            tid = Threads.nthreads() > 1 ? Threads.threadid() - 1 : Thread.threadid()
+            tid = Threads.nthreads() > 1 ? Threads.threadid() - 1 : Threads.threadid()
             if (IInd,JInd) in keys(entries[tid]) 
                 entries[tid][(IInd,JInd)] += sign*v*2
             else
@@ -254,9 +266,26 @@ function calcV(twoBody::Vector{Tuple{ComplexF64, Tuple{Int64, Int64,Int64, Int64
     #rows=reduce(vcat,Rows)
     #cols=reduce(vcat,Cols)
     #vals=reduce(vcat,Vals)
-    rows = reduce(vcat, [[x[1] for x in keys(entry)] for entry in entries])
-    cols = reduce(vcat, [[x[2] for x in keys(entry)] for entry in entries])
-    vals = reduce(vcat, [collect(values(entry)) for entry in entries])
+    #rows = reduce(vcat, [[x[1] for x in keys(entry)] for entry in entries])
+    #cols = reduce(vcat, [[x[2] for x in keys(entry)] for entry in entries])
+    #vals = reduce(vcat, [collect(values(entry)) for entry in entries])
+    reduce(combinedata!,entries)
+    #rows = [x[1] for x in keys(entries[1])]
+    #cols = [x[2] for x in keys(entries[1])]
+    #vals = collect(values(entries[1]))
+
+    open("Matrix/two-body/$name/rows-cols.txt","a+") do f
+        write(f,join(["$row,$col" for (row,col) in keys(entries[1])],"\n"))
+        if subzone != num_zones
+            write(f,"\n")
+        end
+    end
+    open("Matrix/two-body/$name/vals.txt","a+") do f
+        write(f,join(values(entries[1]),"\n"))
+        if subzone != num_zones
+            write(f,"\n")
+        end
+    end
     #FREE UP RAM
     entries = nothing
     #Rows=nothing
@@ -264,24 +293,25 @@ function calcV(twoBody::Vector{Tuple{ComplexF64, Tuple{Int64, Int64,Int64, Int64
     #Vals=nothing
     GC.gc() #garbage collect
     
-    open("Matrix/two-body/$name/rows.txt","a+") do f
-        write(f,join(string.(rows),"\n"))
-        if subzone != num_zones
-            write(f,"\n")
-        end
-    end
-    open("Matrix/two-body/$name/cols.txt","a+") do f
-        write(f,join(string.(cols),"\n"))
-        if subzone != num_zones
-            write(f,"\n")
-        end
-    end
-    open("Matrix/two-body/$name/vals.txt","a+") do f
-        write(f,join(string.(vals),"\n"))
-        if subzone != num_zones
-            write(f,"\n")
-        end
-    end
+    
+    # open("Matrix/two-body/$name/rows.txt","a+") do f
+    #     write(f,join(string.(rows),"\n"))
+    #     if subzone != num_zones
+    #         write(f,"\n")
+    #     end
+    # end
+    # open("Matrix/two-body/$name/cols.txt","a+") do f
+    #     write(f,join(string.(cols),"\n"))
+    #     if subzone != num_zones
+    #         write(f,"\n")
+    #     end
+    # end
+    # open("Matrix/two-body/$name/vals.txt","a+") do f
+    #     write(f,join(string.(vals),"\n"))
+    #     if subzone != num_zones
+    #         write(f,"\n")
+    #     end
+    # end
     
     rows=nothing
     cols=nothing
@@ -324,7 +354,7 @@ function calcT(oneBody::Vector{Tuple{ComplexF64, Tuple{Int64, Int64}}}, States::
             end
 
             # Record the result
-            tid = Threads.nthreads() > 1 ? Threads.threadid() - 1 : Thread.threadid()
+            tid = Threads.nthreads() > 1 ? Threads.threadid() - 1 : Threads.threadid()
             if (IInd,JInd) in keys(entries[tid]) 
                 entries[tid][(IInd,JInd)] += sign*t
             else
@@ -356,9 +386,26 @@ function calcT(oneBody::Vector{Tuple{ComplexF64, Tuple{Int64, Int64}}}, States::
     # rows=reduce(vcat,Rows)
     # cols=reduce(vcat,Cols)
     # vals=reduce(vcat,Vals)
-    rows = reduce(vcat, [[x[1] for x in keys(entry)] for entry in entries])
-    cols = reduce(vcat, [[x[2] for x in keys(entry)] for entry in entries])
-    vals = reduce(vcat, [collect(values(entry)) for entry in entries])
+    #rows = reduce(vcat, [[x[1] for x in keys(entry)] for entry in entries])
+    #cols = reduce(vcat, [[x[2] for x in keys(entry)] for entry in entries])
+    #vals = reduce(vcat, [collect(values(entry)) for entry in entries])
+    reduce(combinedata!,entries)
+    #rows = [x[1] for x in keys(entries[1])]
+    #cols = [x[2] for x in keys(entries[1])]
+    #vals = collect(values(entries[1]))
+
+    open("Matrix/one-body/$name/rows-cols.txt","a+") do f
+        write(f,join(["$row,$col" for (row,col) in keys(entries[1])],"\n"))
+        if subzone != num_zones
+            write(f,"\n")
+        end
+    end
+    open("Matrix/one-body/$name/vals.txt","a+") do f
+        write(f,join(values(entries[1]),"\n"))
+        if subzone != num_zones
+            write(f,"\n")
+        end
+    end
     #FREE UP RAM
     entries = nothing
     # Rows=nothing
@@ -366,29 +413,29 @@ function calcT(oneBody::Vector{Tuple{ComplexF64, Tuple{Int64, Int64}}}, States::
     # Vals=nothing
     GC.gc() #garbage collect
 
-    open("Matrix/one-body/$name/rows.txt","a+") do f
-        write(f,join(string.(rows),"\n"))
-        if subzone != num_zones
-            write(f,"\n")
-        end
-    end
-    open("Matrix/one-body/$name/cols.txt","a+") do f
-        write(f,join(string.(cols),"\n"))
-        if subzone != num_zones
-            write(f,"\n")
-        end
-    end
-    open("Matrix/one-body/$name/vals.txt","a+") do f
-        write(f,join(string.(vals),"\n"))
-        if subzone != num_zones
-            write(f,"\n")
-        end
-    end
+    # open("Matrix/one-body/$name/rows.txt","a+") do f
+    #     write(f,join(string.(rows),"\n"))
+    #     if subzone != num_zones
+    #         write(f,"\n")
+    #     end
+    # end
+    # open("Matrix/one-body/$name/cols.txt","a+") do f
+    #     write(f,join(string.(cols),"\n"))
+    #     if subzone != num_zones
+    #         write(f,"\n")
+    #     end
+    # end
+    # open("Matrix/one-body/$name/vals.txt","a+") do f
+    #     write(f,join(string.(vals),"\n"))
+    #     if subzone != num_zones
+    #         write(f,"\n")
+    #     end
+    # end
 
-    rows=nothing
-    cols=nothing
-    vals=nothing
-    GC.gc()  
+    #rows=nothing
+    #cols=nothing
+    #vals=nothing
+    #GC.gc()  
 
     return
 end

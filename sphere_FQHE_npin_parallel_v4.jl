@@ -24,27 +24,25 @@ function read_rows_and_cols(one_body_file="",two_body_file="")
     cols = UInt64[]
     ut   = BitVector([])
     lens = [0,0]
-    try
-        open("Matrix/one-body/$(one_body_file)/rows.txt","r") do f
+    try # two-body is read first
+        open("Matrix/two-body/$(two_body_file)/rows-cols.txt","r") do f
             for line in eachline(f)
-                push!(rows,parse(UInt64,line))
-                lens[1] += 1
-            end
-        end
-        open("Matrix/one-body/$(one_body_file)/cols.txt","r") do f
-            for line in eachline(f)
-                push!(cols,parse(UInt64,line))
-            end
-        end
-        open("Matrix/two-body/$(two_body_file)/rows.txt","r") do f
-            for line in eachline(f)
-                push!(rows,parse(UInt64,line))
+                row, col = parse.(Int,split(line,","))
+                push!(rows,row)
+                push!(cols,col)
                 lens[2] += 1
             end
         end
-        open("Matrix/two-body/$(two_body_file)/cols.txt","r") do f
+        open("Matrix/one-body/$(one_body_file)/rows-cols.txt","r") do f
             for line in eachline(f)
-                push!(cols,parse(UInt64,line))
+                row, col = parse.(Int,split(line,","))
+                push!(rows,row)
+                push!(cols,col)
+                #if row != col
+                #    push!(rows, col)
+                #    push!(cols,row)
+                #end
+                lens[1] += 1
             end
         end
         return rows, cols,lens
@@ -52,7 +50,7 @@ function read_rows_and_cols(one_body_file="",two_body_file="")
         println("One or more specified files not found in:")
         println(" • Matrix/one-body/$one_body_file")
         println(" • Matrix/two-body/$two_body_file")
-        return UInt64[], UInt64[],[0,0]
+        return rows, cols,lens
     end
 end
 
@@ -302,15 +300,24 @@ function main()
             if sum(lens)>0
                 H_matrix   = spzeros(ComplexF64,rows,cols,d,d) # requires Julia 1.10 or newer
                 # Read one-body matrix values
+                shiftindex = lens[2]
+                #println("Shift index = $shiftindex")
                 open("Matrix/one-body/$(latest_file_1bdy)/vals.txt") do f
                     for (i,line) in enumerate(eachline(f))
-                        H_matrix[rows[i],cols[i]] += λ*parse(ComplexF64,line)
+                        linevalue = parse(ComplexF64,line)
+                        H_matrix[rows[i+shiftindex],cols[i+shiftindex]] += λ*linevalue
+                        #if rows[i+shiftindex] != cols[i+shiftindex]
+                        #    shiftindex += 1
+                            #println("Updated shift index = $shiftindex")
+                        #    H_matrix[rows[i+shiftindex],cols[i+shiftindex]] += λ*conj(linevalue)
+                        #end
+                        #H_matrix[cols[i+lens[2]],rows[i+lens[2]]] += λ*conj(linevalue)
                     end
                 end
                 # Read two-body matrix values
                 open("Matrix/two-body/$(latest_file_2bdy)/vals.txt") do f
                     for (i,line) in enumerate(eachline(f))
-                        H_matrix[rows[i+lens[1]],cols[i+lens[1]]] += parse(ComplexF64,line)
+                        H_matrix[rows[i],cols[i]] += parse(ComplexF64,line)
                     end
                 end
             end
