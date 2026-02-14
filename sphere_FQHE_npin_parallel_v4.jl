@@ -28,22 +28,26 @@ function read_rows_and_cols(one_body_file="",two_body_file="")
     try # two-body is read first
         open("Matrix/two-body/$(two_body_file)/rows-cols.txt","r") do f
             for line in eachline(f)
-                row, col = parse.(Int,split(line,","))
-                push!(rows,row)
-                push!(cols,col)
-                lens[2] += 1
+                if length(line) > 0
+                    row, col = parse.(Int,split(line,","))
+                    push!(rows,row)
+                    push!(cols,col)
+                    lens[2] += 1
+                end
             end
         end
         open("Matrix/one-body/$(one_body_file)/rows-cols.txt","r") do f
             for line in eachline(f)
-                row, col = parse.(Int,split(line,","))
-                push!(rows,row)
-                push!(cols,col)
-                if row != col
-                    push!(rows, col)
-                    push!(cols,row)
+                if length(line) > 0
+                    row, col = parse.(Int,split(line,","))
+                    push!(rows,row)
+                    push!(cols,col)
+                    if row != col
+                        push!(rows, col)
+                        push!(cols,row)
+                    end
+                    lens[1] += 1
                 end
-                lens[1] += 1
             end
         end
         return rows, cols,lens
@@ -69,8 +73,8 @@ function main()
         @argumentflag nooutput "--no-output"
         @argumentflag noeigenstate "--no-eigenstate"
         @argumentflag nomatrix "--no-saving-matrix"
-        @argumentdefault Int 100 numzones1bd "-z" "--num-zones-1bdy"
-        @argumentdefault Int 10 numzones2bd "-Z" "--num-zones-2bdy"
+        @argumentdefault Int 1 numzones1bd "-z" "--num-zones-1bdy"
+        @argumentdefault Int 1 numzones2bd "-Z" "--num-zones-2bdy"
     end
     #LzConserve = npin ≤ 2
     LzConserve = false # This version doesn't work for rotationally symmetric configurations yet
@@ -307,22 +311,35 @@ function main()
                 #println("Shift index = $shiftindex")
                 open("Matrix/one-body/$(latest_file_1bdy)/vals.txt") do f
                     for (i,line) in enumerate(eachline(f))
-                        linevalue = parse(ComplexF64,line)
-                        H_matrix[rows[i+shiftindex],cols[i+shiftindex]] += λ*linevalue
-                        H_matrix[cols[i+shiftindex],rows[i+shiftindex]] += λ*conj(linevalue)
-                        if rows[i+shiftindex] != cols[i+shiftindex]
-                            shiftindex += 1
-                            #println("Updated shift index = $shiftindex")
+                        print("\rReading line $i of one-body matrix\t\t")
+                        if length(line) > 0
+                            linevalue = parse(ComplexF64,line)
+                            H_matrix[rows[i+shiftindex],cols[i+shiftindex]] += λ*linevalue
+                            H_matrix[cols[i+shiftindex],rows[i+shiftindex]] += λ*conj(linevalue)
+                            if rows[i+shiftindex] != cols[i+shiftindex]
+                                shiftindex += 1
+                                #println("Updated shift index = $shiftindex")
+                            end
+                            #H_matrix[cols[i+lens[2]],rows[i+lens[2]]] += λ*conj(linevalue)
+                        else
+                            shiftindex -= 1
                         end
-                        #H_matrix[cols[i+lens[2]],rows[i+lens[2]]] += λ*conj(linevalue)
                     end
                 end
+                println("Done")
                 # Read two-body matrix values
                 open("Matrix/two-body/$(latest_file_2bdy)/vals.txt") do f
+                    shiftindex = 0
                     for (i,line) in enumerate(eachline(f))
-                        H_matrix[rows[i],cols[i]] += parse(ComplexF64,line)
+                        print("\rReading line $i of two-body matrix\t\t")
+                        if length(line) > 0
+                            H_matrix[rows[i + shiftindex],cols[i+shiftindex]] += parse(ComplexF64,line)
+                        else
+                            shiftindex -= 1
+                        end
                     end
                 end
+                println("Done")
             end
         end # end of @time block 
 

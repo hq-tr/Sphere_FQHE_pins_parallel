@@ -2,7 +2,9 @@
 • Updated SphereED_v5.jl to only record matrix elements if it is larger than TOL = 1e-14.
 • Now only the upper-triangular terms of the one-body matrix is recorded
 	• The two-body matrix is still recorded in full for now. This matrix is typically smaller and is not the bottle neck.
-
+• The number of zones for one-body and two-body matrix construction are now in-line argument set with "-z" and "-Z", respectively
+	• However, it is recommended to run the code with both these numbers set at 1, unless memory becomes a concern
+	
 == 2026-02-07
 • Updated SphereED_v5.jl to combine repeated lines in output with the same (row,col) index pairs.
 	- It only applies to each subzone. So potentially there could still be repeated index pairs if they occur in different subzones. This problem is not addressed yet (check To-do)
