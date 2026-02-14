@@ -1,6 +1,7 @@
 module HilbertSpaceGenerator
 using Combinatorics
 const epsilon = 1e-8
+
 function fullhilbertspace(N_el::Int64, N_orb::Int64)::Vector{Int64}
     States = Vector{Int64}()
     indVec = collect(0:N_orb-1)
@@ -162,6 +163,8 @@ end
 module ConstructManybodyMatrix
 using SparseArrays
 
+TOL = 1e-14
+
 function combinedata!(a, b)
     for bb in keys(b)
         if bb in keys(a)
@@ -171,6 +174,15 @@ function combinedata!(a, b)
         end
     end
     return a
+end
+
+function removezeros!(a)
+    for aa in keys(a)
+        if abs(a[aa]) < TOL
+            delete!(a,aa)
+        end
+    end
+    return
 end
 
 function calcSign(I::Int64, K::Int64)::Int64
@@ -231,6 +243,7 @@ function calcV(twoBody::Vector{Tuple{ComplexF64, Tuple{Int64, Int64,Int64, Int64
     end
     Threads.@threads for i in begin_index:end_index
         (v, (i, j, l, k)) = twoBody[i]
+        if abs(v) < TOL continue end
         for IInd in eachindex(States)
             I = States[IInd]
             sign = 1
@@ -270,6 +283,7 @@ function calcV(twoBody::Vector{Tuple{ComplexF64, Tuple{Int64, Int64,Int64, Int64
     #cols = reduce(vcat, [[x[2] for x in keys(entry)] for entry in entries])
     #vals = reduce(vcat, [collect(values(entry)) for entry in entries])
     reduce(combinedata!,entries)
+    removezeros!(entries[1])
     #rows = [x[1] for x in keys(entries[1])]
     #cols = [x[2] for x in keys(entries[1])]
     #vals = collect(values(entries[1]))
@@ -340,6 +354,9 @@ function calcT(oneBody::Vector{Tuple{ComplexF64, Tuple{Int64, Int64}}}, States::
     end
     Threads.@threads for i in begin_index:end_index
         (t, (i, j)) = oneBody[i]
+
+        if abs(t)<TOL continue end
+
         for IInd in eachindex(States)
             I = States[IInd]
             sign = 1
@@ -361,11 +378,11 @@ function calcT(oneBody::Vector{Tuple{ComplexF64, Tuple{Int64, Int64}}}, States::
                 entries[tid][(IInd,JInd)] = sign*t
             end
 
-            if (JInd, IInd) in keys(entries[tid]) 
-                entries[tid][(JInd,IInd)] += conj(sign*t)
-            else
-                entries[tid][(JInd,IInd)] = conj(sign*t)
-            end
+            #if (JInd, IInd) in keys(entries[tid]) 
+            #    entries[tid][(JInd,IInd)] += conj(sign*t)
+            #else
+            #    entries[tid][(JInd,IInd)] = conj(sign*t)
+            #end
             # if Threads.nthreads() > 1
             #     push!(Rows[Threads.threadid()-1], JInd)
             #     push!(Cols[Threads.threadid()-1], IInd)
@@ -390,6 +407,7 @@ function calcT(oneBody::Vector{Tuple{ComplexF64, Tuple{Int64, Int64}}}, States::
     #cols = reduce(vcat, [[x[2] for x in keys(entry)] for entry in entries])
     #vals = reduce(vcat, [collect(values(entry)) for entry in entries])
     reduce(combinedata!,entries)
+    removezeros!(entries[1])
     #rows = [x[1] for x in keys(entries[1])]
     #cols = [x[2] for x in keys(entries[1])]
     #vals = collect(values(entries[1]))

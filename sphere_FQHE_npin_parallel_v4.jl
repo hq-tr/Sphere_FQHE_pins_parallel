@@ -15,6 +15,7 @@ using JLD2
 using Arpack
 using Dates
 
+
 function check_valid_result(dir_name) # A directory must contains "out.log", otherwise its result is invalid
     return ("out.log" in readdir(dir_name))
 end
@@ -38,10 +39,10 @@ function read_rows_and_cols(one_body_file="",two_body_file="")
                 row, col = parse.(Int,split(line,","))
                 push!(rows,row)
                 push!(cols,col)
-                #if row != col
-                #    push!(rows, col)
-                #    push!(cols,row)
-                #end
+                if row != col
+                    push!(rows, col)
+                    push!(cols,row)
+                end
                 lens[1] += 1
             end
         end
@@ -68,6 +69,8 @@ function main()
         @argumentflag nooutput "--no-output"
         @argumentflag noeigenstate "--no-eigenstate"
         @argumentflag nomatrix "--no-saving-matrix"
+        @argumentdefault Int 100 numzones1bd "-z" "--num-zones-1bdy"
+        @argumentdefault Int 10 numzones2bd "-Z" "--num-zones-2bdy"
     end
     #LzConserve = npin ≤ 2
     LzConserve = false # This version doesn't work for rotationally symmetric configurations yet
@@ -238,9 +241,9 @@ function main()
         
         if build_matrix
             @time begin
-                for subzone = 1:10
-                    print("\rProgress $subzone/10\t")
-                    calcV(twoBody,basis,subzone;num_zones=10,name=latest_file_2bdy)
+                for subzone = 1:numzones2bd
+                    print("\rProgress $subzone/$numzones2bd\t")
+                    calcV(twoBody,basis,subzone;num_zones=numzones2bd,name=latest_file_2bdy)
                 end
             end 
             open("Matrix/two-body/$latest_file_2bdy/out.log","w+") do f
@@ -278,9 +281,9 @@ function main()
 
         if build_matrix
             @time begin
-                for subzone = 1:100
-                    print("\rProgress $subzone/100\t")
-                    calcT(oneBody,basis,subzone;num_zones=100,name=latest_file_1bdy)
+                for subzone = 1:numzones1bd
+                    print("\rProgress $subzone/$(numzones1bd)\t")
+                    calcT(oneBody,basis,subzone;num_zones=numzones1bd,name=latest_file_1bdy)
                 end
             end      
             open("Matrix/one-body/$latest_file_1bdy/out.log","w+") do f
@@ -306,11 +309,11 @@ function main()
                     for (i,line) in enumerate(eachline(f))
                         linevalue = parse(ComplexF64,line)
                         H_matrix[rows[i+shiftindex],cols[i+shiftindex]] += λ*linevalue
-                        #if rows[i+shiftindex] != cols[i+shiftindex]
-                        #    shiftindex += 1
+                        H_matrix[cols[i+shiftindex],rows[i+shiftindex]] += λ*conj(linevalue)
+                        if rows[i+shiftindex] != cols[i+shiftindex]
+                            shiftindex += 1
                             #println("Updated shift index = $shiftindex")
-                        #    H_matrix[rows[i+shiftindex],cols[i+shiftindex]] += λ*conj(linevalue)
-                        #end
+                        end
                         #H_matrix[cols[i+lens[2]],rows[i+lens[2]]] += λ*conj(linevalue)
                     end
                 end
