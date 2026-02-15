@@ -1,3 +1,6 @@
+== 2026-02-15
+• When reading (rows,cols) from file, each vector will be pre-allocated instead of built by push!()
+
 == 2026-02-14
 • Updated SphereED_v5.jl to only record matrix elements if it is larger than TOL = 1e-14.
 • Now only the upper-triangular terms of the one-body matrix is recorded

@@ -21,35 +21,63 @@ function check_valid_result(dir_name) # A directory must contains "out.log", oth
 end
 
 function read_rows_and_cols(one_body_file="",two_body_file="")
-    rows = UInt64[]
-    cols = UInt64[]
-    ut   = BitVector([])
+    nnz  = countlines(open("Matrix/two-body/$(two_body_file)/rows-cols.txt"))
+    nnz += 2*countlines(open("Matrix/one-body/$(one_body_file)/rows-cols.txt"))
+
+    rows = zeros(UInt64,nnz)
+    cols = zeros(UInt64,nnz)
     lens = [0,0]
     try # two-body is read first
         open("Matrix/two-body/$(two_body_file)/rows-cols.txt","r") do f
-            for line in eachline(f)
+            shiftindex = 0
+            for (i,line) in enumerate(eachline(f))
+                print("\rReading line $i of (rows,cols) of two-body matrix\t\t")
                 if length(line) > 0
                     row, col = parse.(Int,split(line,","))
-                    push!(rows,row)
-                    push!(cols,col)
+                    #push!(rows,row)
+                    #push!(cols,col)
+                    rows[i+shiftindex] = row
+                    cols[i+shiftindex] = col
                     lens[2] += 1
+                else
+                    shiftindex -= 1
                 end
             end
         end
+        println()
         open("Matrix/one-body/$(one_body_file)/rows-cols.txt","r") do f
-            for line in eachline(f)
+            shiftindex = copy(lens[2])
+            for (i,line) in enumerate(eachline(f))
+                print("\rReading line $i of (rows,cols) of one-body matrix\t\t")
                 if length(line) > 0
                     row, col = parse.(Int,split(line,","))
-                    push!(rows,row)
-                    push!(cols,col)
-                    if row != col
-                        push!(rows, col)
-                        push!(cols,row)
-                    end
+                    rows[i+shiftindex] = row
+                    cols[i+shiftindex] = col
                     lens[1] += 1
+                    if row != col
+                        shiftindex += 1
+                        rows[i+shiftindex] = col
+                        cols[i+shiftindex] = row
+                        lens[1] += 1
+                    end
+                    # push!(rows,row)
+                    # push!(cols,col)
+                    # if row != col
+                    #     push!(rows, col)
+                    #     push!(cols,row)
+                    # end
                 end
             end
         end
+        println()
+        while rows[end] < 1e-10
+            pop!(rows)
+        end
+        while cols[end] < 1e-10
+            pop!(cols)
+        end
+        println("NNZ = $(sum(lens))")
+        println("$(length(rows))\t$(length(cols))")
         return rows, cols,lens
     catch SystemError
         println("One or more specified files not found in:")
