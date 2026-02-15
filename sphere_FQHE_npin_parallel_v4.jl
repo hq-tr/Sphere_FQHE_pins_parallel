@@ -66,6 +66,8 @@ function read_rows_and_cols(one_body_file="",two_body_file="")
                     #     push!(rows, col)
                     #     push!(cols,row)
                     # end
+                else
+                    shiftindex -= 1
                 end
             end
         end
@@ -76,8 +78,6 @@ function read_rows_and_cols(one_body_file="",two_body_file="")
         while cols[end] < 1e-10
             pop!(cols)
         end
-        println("NNZ = $(sum(lens))")
-        println("$(length(rows))\t$(length(cols))")
         return rows, cols,lens
     catch SystemError
         println("One or more specified files not found in:")
@@ -331,13 +331,17 @@ function main()
         @time begin
             # Construct the matrix from saved data
             rows, cols, lens = read_rows_and_cols(latest_file_1bdy,latest_file_2bdy)
+            println("NNZ = $(sum(lens))")
+            println("$(length(rows))\t$(length(cols))")
             #println("Number of non-zero elements: $(lens[1]), $(lens[2])")
             if sum(lens)>0
                 H_matrix   = spzeros(ComplexF64,rows,cols,d,d) # requires Julia 1.10 or newer
+
+                println("Begin reading matrix elements")
+
                 # Read one-body matrix values
-                shiftindex = lens[2]
-                #println("Shift index = $shiftindex")
                 open("Matrix/one-body/$(latest_file_1bdy)/vals.txt") do f
+                    shiftindex = copy(lens[2])
                     for (i,line) in enumerate(eachline(f))
                         print("\rReading line $i of one-body matrix\t\t")
                         if length(line) > 0
