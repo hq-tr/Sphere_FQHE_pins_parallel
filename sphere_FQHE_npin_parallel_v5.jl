@@ -23,7 +23,9 @@ end
 
 dec2dex(n::Integer) = [i-1 for (i,d) in enumerate(digits(n,base=2)) if d==1]
 
-function get_rows_and_cols(basis::Vector{T} where T<:Integer,n_orb::Integer)
+function get_rows_and_cols(basis::Vector{T} where T<:Integer,n_orb::Integer;onebody=true,twobody=true)
+    if !onebody && !twobody return UInt64[],UInt64[] end
+
     d = length(basis)
 
     #for b in basis
@@ -40,37 +42,43 @@ function get_rows_and_cols(basis::Vector{T} where T<:Integer,n_orb::Integer)
         basis1_dex = dec2dex(basis1)
 
         # One-body c†_m2 c_m1
-        for m1 in basis1_dex
-            for m2 in (m1+1):(n_orb-1) #only check m2 > m1
-                
-                if m2 in basis1_dex continue end # Make sure m2 is not an electron
+        if onebody
+            for m1 in basis1_dex
+                for m2 in (m1+1):(n_orb-1) #only check m2 > m1
+                    
+                    if m2 in basis1_dex continue end # Make sure m2 is not an electron
 
-                basis2 = basis1 - 2^m1 + 2^m2
-                index2 = searchsortedfirst(basis,basis2)
+                    basis2 = basis1 - 2^m1 + 2^m2
+                    index2 = searchsortedfirst(basis,basis2)
 
-                push!(rows,index1)
-                push!(cols,index2)
-                push!(rows,index2)
-                push!(cols,index1)
+                    push!(rows,index1)
+                    push!(cols,index2)
+                    push!(rows,index2)
+                    push!(cols,index1)
 
+                end
             end
         end
 
         # Two-body c†_m3 c†_m4 c_m1 c_m2 (m3 < m1 < m2 < m4)
-        for (m1,m2) in combinations(basis1_dex,2)
-            if m1+m2 ≥ n_orb continue end
-            for m4 in (m2+1):(m2+m1)
-                if m4 in basis1_dex continue end
-                m3 = m1+m2-m4
-                if m3 in basis1_dex continue end
+        if twobody
+            for (m1,m2) in combinations(basis1_dex,2)
+                for m4 in (m2+1):min(n_orb,m2+m1)
+                    if m4 in basis1_dex continue end
+                    m3 = m1+m2-m4
+                    if m3 in basis1_dex continue end
+                    if m3 > n_orb continue end
 
-                basis2 = basis1 - 2^m1 - 2^m2 + 2^m3 + 2^m4
-                index2 = searchsortedfirst(basis,basis2)
+                    basis2 = basis1 - 2^m1 - 2^m2 + 2^m3 + 2^m4
+                    index2 = searchsortedfirst(basis,basis2)
+                    if index2 > d continue end
+                    if basis[index2] != basis2 continue end
 
-                push!(rows,index1)
-                push!(cols,index2)
-                push!(rows,index2)
-                push!(cols,index1)
+                    push!(rows,index1)
+                    push!(cols,index2)
+                    push!(rows,index2)
+                    push!(cols,index1)
+                end
             end
         end
     end
